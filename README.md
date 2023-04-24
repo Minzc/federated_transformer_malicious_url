@@ -1,6 +1,6 @@
 # Federated Malicious URL Detection with Flower and Transformers
 
-This is an introductory example to use Flower and Transformers to build a federated malicious URL classifier. 
+This is an introductory example to use Flower and Transformers to build a federated malicious URL classifier. For more details please refer to the blog report [[LINK]](https://minzc.github.io/posts/fed_trans/)
 
 ## Project Steup
 
