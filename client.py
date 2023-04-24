@@ -1,25 +1,9 @@
-import random
-from collections import OrderedDict
-from datasets import Features, Value, ClassLabel, load_dataset, Dataset, concatenate_datasets
 import torch
-from datasets import load_dataset
-from torch.utils.data import DataLoader, ConcatDataset
-from transformers import AutoTokenizer, DataCollatorWithPadding
-from datasets import DatasetDict
-from evaluate import load as load_metric
-from transformers import AdamW
-from transformers import AutoModelForSequenceClassification 
+from torch.utils.data import DataLoader
 import flwr as fl
-from typing import List, Tuple, Dict
-from flwr.common import Metrics
-import gc
-from wordcloud import WordCloud
-import tqdm
-from flwr.common.parameter import parameters_to_ndarrays
-import matplotlib.pyplot as plt
-import json
-from torch import nn
+from typing import List
 from util import test, train, set_parameters
+import numpy as np
 
     
 class MalURLClient(fl.client.NumPyClient):
@@ -130,4 +114,4 @@ class MalURLClient(fl.client.NumPyClient):
             "valid_loss": float(valid_loss),
             'valid_f1': float(valid_f1),
         }
-        return float(valid_loss), len(self.testloader), metrics
+        return float(valid_loss), len(self.valloader), metrics

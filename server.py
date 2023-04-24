@@ -1,29 +1,14 @@
-from collections import OrderedDict
-from datasets import Features, Value, ClassLabel, load_dataset, Dataset, concatenate_datasets
 import torch
-from datasets import load_dataset
-from torch.utils.data import DataLoader, ConcatDataset
-from transformers import AutoTokenizer, DataCollatorWithPadding
-from datasets import DatasetDict
-from evaluate import load as load_metric
-from transformers import AdamW
-from transformers import AutoModelForSequenceClassification 
 import flwr as fl
-from typing import List, Tuple, Dict
-from flwr.common import Metrics
-import gc
-from wordcloud import WordCloud
-import tqdm
-from flwr.common.parameter import parameters_to_ndarrays
-import matplotlib.pyplot as plt
-import json
-from torch import nn
+from typing import List, Dict
 from util import weighted_average, get_evaluate_fn, init_model, NUM_LABELS, load_raw_data, prepare_train_test_iid, prepare_train_test_noniid, process_data
 from client import MalURLClient
 import torch
 from typing import List, Dict, Any, Callable
+from parse_args import args
+import json
 
-def get_client_fn(client_dataloaders: List[Dict[str, Any]], net: torch.nn.Module) -> Callable[[str], Any]:
+def get_client_fn(client_dataloaders: List[Dict[str, Any]], net: torch.nn.Module, epoch: int) -> Callable[[str], Any]:
     """
     Return the function to create a client.
 
@@ -33,7 +18,8 @@ def get_client_fn(client_dataloaders: List[Dict[str, Any]], net: torch.nn.Module
         A list of dictionaries containing the data loaders for the training and validation data of all clients.
     net : torch.nn.Module
         The neural network to use for the clients.
-
+    epoch : int
+        The number of local training epoch
     Returns
     -------
     Callable[[str], Any]
@@ -53,15 +39,15 @@ def get_client_fn(client_dataloaders: List[Dict[str, Any]], net: torch.nn.Module
         Any: MalURLClient
             A client instance for the given client ID.
         """
-        return MalURLClient(cid, net, client_dataloaders[int(cid)]['train'], client_dataloaders[int(cid)]['validation'])
+        return MalURLClient(cid, net, client_dataloaders[int(cid)]['train'], client_dataloaders[int(cid)]['validation'], epoch)
 
     return client_fn
 
 
-def main(args):
+def main():
     net = init_model(num_labels=NUM_LABELS, fine_tune=True)
 
-    input_dataset = load_raw_data(args.i)
+    input_dataset = load_raw_data(args.input)
 
     if args.split == 'even':
         num_clients = 10
@@ -81,17 +67,23 @@ def main(args):
         evaluate_fn=get_evaluate_fn(net, server_testloader)  # Pass the evaluation function
     )
 
-    client_resources = {"num_gpus": 1}
+    client_resources = {"num_gpus": 0}
 
     # Start simulation
-    fl.simulation.start_simulation(
-        client_fn=get_client_fn(client_dataloaders),
+    history = fl.simulation.start_simulation(
+        client_fn=get_client_fn(client_dataloaders, net, args.client_epoch),
         num_clients=num_clients,
         config=fl.server.ServerConfig(num_rounds=args.epoch),
         strategy=strategy, # Server side strategy discussed in Section Server
         client_resources=client_resources,
     )
-
+    
+    rst = {
+        'metrics_distributed': history.metrics_distributed,
+        'metrics_centralized': history.metrics_centralized,
+    }
+    with open(args.output, "w") as w:
+        w.write(f"{json.dumps(rst)}\n")
 
 if __name__ == '__main__':
     main()

@@ -1,0 +1,7 @@
+pytorch
+transformers
+flwr
+evaluate
+datasets
+pandas
+sciket-learn

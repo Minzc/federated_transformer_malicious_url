@@ -1,30 +1,17 @@
-import random
 from collections import OrderedDict
-from datasets import Features, Value, ClassLabel, load_dataset, Dataset, concatenate_datasets
+from datasets import Features, Value, ClassLabel, load_dataset, Dataset, concatenate_datasets, DatasetDict
 import torch
-from datasets import load_dataset
-from torch.utils.data import DataLoader, ConcatDataset
-from transformers import AutoTokenizer, DataCollatorWithPadding
-from datasets import DatasetDict
-from evaluate import load as load_metric
-from transformers import AdamW
-from transformers import AutoModelForSequenceClassification 
-import flwr as fl
-from typing import List, Tuple, Dict
-from flwr.common import Metrics
-import gc
-from wordcloud import WordCloud
-import tqdm
-from flwr.common.parameter import parameters_to_ndarrays
-import matplotlib.pyplot as plt
-import json
 from torch import nn
-import torch
 from torch.utils.data import DataLoader
-from typing import Callable, Tuple, Any
+from transformers import AutoTokenizer, DataCollatorWithPadding, AdamW, AutoModelForSequenceClassification
+from evaluate import load as load_metric
+from typing import List, Tuple, Dict, Callable, Any
+from flwr.common import Metrics
+import tqdm
+
 
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-NUM_LINES = 65110 # Due to limited computation resources, we only load a subset of data points for our experiments.
+NUM_LINES = 40 # 65110 # Due to limited computation resources, we only load a subset of data points for our experiments.
 BATCH_SIZE = 32
 NUM_LABELS = 4
 RANDOM_SEEDS = 42
@@ -148,23 +135,23 @@ def prepare_train_test_iid(raw_datasets: Dataset,  num_clients: int) -> Tuple[Li
     return client_datasets, server_test_dataset
 
 
-def prepare_train_test_noniid(raw_datasets: datasets.Dataset, num_clients: int) -> Tuple[List[datasets.DatasetDict], datasets.Dataset]:
+def prepare_train_test_noniid(raw_datasets: Dataset, num_clients: int) -> Tuple[List[DatasetDict], Dataset]:
     """
     Prepares the training and testing datasets for a federated learning scenario where the data is partitioned across 
     multiple clients in a non-IID (Non-Independent and Identically Distributed) manner.
 
     Parameters
     ----------
-    raw_datasets: datasets.Dataset
+    raw_datasets: Dataset
         The raw dataset containing the URLs and their corresponding labels.
     num_clients: int
         The total number of clients in the federated learning process.
 
     Returns
     -------
-    client_datasets: List[datasets.DatasetDict]
+    client_datasets: List[DatasetDict]
         A list of datasets for each client, each containing the training and validation subsets.
-    server_test_dataset: datasets.Dataset
+    server_test_dataset: Dataset
         The dataset used by the central server for central evaluation.
     """
 
@@ -212,16 +199,16 @@ def verfiy_data_loader(data_loader: torch.utils.data.DataLoader) -> None:
 # client_datasets, global_testset = prepare_train_test(raw_datasets)
 
 
-def process_data(client_datasets: List[datasets.DatasetDict], global_testset: datasets.Dataset) -> Tuple[List[Dict[str, torch.utils.data.DataLoader]], torch.utils.data.DataLoader]:
+def process_data(client_datasets: List[DatasetDict], global_testset: Dataset) -> Tuple[List[Dict[str, torch.utils.data.DataLoader]], torch.utils.data.DataLoader]:
     """
     Loads and tokenizes the training and testing datasets for each client.
 
     Parameters
     ----------
-    client_datasets: List[datasets.DatasetDict]
+    client_datasets: List[DatasetDict]
         A list of datasets for each client, each containing the training and validation subsets.
 
-    global_testset: datasets.Dataset
+    global_testset: Dataset
         The dataset used by the central server for central evaluation.
 
     Returns
@@ -279,9 +266,8 @@ def process_data(client_datasets: List[datasets.DatasetDict], global_testset: da
     verfiy_data_loader(testloader)
 
     return client_dataloaders, testloader
-    
-# client_dataloaders, testloader = load_data()
 
+    
 def init_model(num_labels: int, fine_tune: bool = True) -> torch.nn.Module:
     """
     Initialize a BERT based sequence classifier.
@@ -426,7 +412,6 @@ def get_evaluate_fn(net: torch.nn.Module, testloader: DataLoader) -> Callable[[i
         The model to be evaluated.
     testloader : DataLoader
         The dataset loader.
-
     Returns
     -------
     Callable[[int, Any, dict], Tuple[float, dict]]
